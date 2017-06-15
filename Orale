@@ -1,0 +1,312 @@
+==================================================
+*******         常用plsql命令          ***********
+==================================================
+|help ;获取命令帮助
+|describe object_name;查看对象中字段的类型，长度及描述
+|desc user_tab_columns:查看对象中各字段的详细情况
+|spool;把查询结果输出到指定文件中。
+|define;定义一个用户变量并且可以分配给它一个char值。
+|show;显示sqlplus系统变量的值或sqlplus环境变量的值
+|edit;
+|save;
+|get;
+|
+|
+|
+===================================================
+
+
+
+==================================================
+*******         格式化查询结果         ***********
+==================================================
+*column
+*heading
+*null
+*
+*
+*
+==================================================
+在oracle中查看数据库及操作系统基本信息
+select * from v$version;
+
+
+1、常用操作
+	1-1 oracle解锁用户
+alter user eximuser_test account unlock;
+	1-2 修改用户密码
+alter user eximuser_test identified by exim1122bank;
+
+
+--创建只有查询权限的用户
+create user userName identified by password;
+grant select any table to userName;
+grant select any dictionary to userName;
+grant create session to userName;
+
+总是锁用户解决方法
+alter profile default limit FAILED_LOGIN_ATTEMPTS UNLIMITED
+
+
+
+查询实例名
+select * from global_name;
+----------------------------------------
+
+2、查看连接数
+select count(*) from v$session;
+select count(*) from v$process;
+alter system set processes=500 scope=spfile;
+shutdown immediate;
+startup
+
+show parameter open_cursors;
+alter system set open_cursors=1000;
+
+
+------------------------------------------
+
+3、删除用户并清除数据
+drop user eximuser_jyuat cascade
+在删除用户时遇到ORA-01940无法删除当前已连接的用户
+select username,sid,serial# from v$session where username='USER_O';
+alter system kill session'152,2289'
+select 'alter system kill session '''||sid||','||serial#||''';' from v$session where username='EXIMUSER';
+
+查询用户和用户的默认表空间对应关系在dba_users中查找
+select du.username,du.default_tablespace from dba_users du;
+------------------------------------------
+
+4、删除表空间文件
+drop tablespace tctest01 including contents and datafiles
+
+-----------------------------------------
+查询表空间的具体信息在dba_data_files中查找
+select tablespace_name,file_id,file_name,round(bytes/(1024*1024),0) total_space from dba_data_files order by tablespace_name;
+创建自增长表空间
+create tablespace myuser datafile '/oracle/oradata/xdgl/myuser01.dbf' size 100m autoextend on next 500M;
+create tablespace MYUSER datafile '/oradata/xdgl/myuser01.dbf' size 5120M autoextend on next 500M maxsize 15000M;
+create tablespace MYUSER datafile '/oracle/oradata/xdgl/myuser01.dbf' size 10m autoextend on next 500M,'/oracle/oradata/xdgl/myuser02.dbf' size 10m autoextend on next 500M;
+带有maxsize的制定大小，不带该参数的默认无限大小，直到数据库允许的最大值。
+-----
+改变表空间的大小
+Alter database datafile '/oracle/oradata/sss01.dbf' resize 4000m;
+
+-----
+创建零时表空间
+create temporary tablespace cb_temp tempfile '/oracle/oradata/xdgl/my_temp01.dbf' size 30m autoextend on next 50m;
+查看临时表空间
+select t.TABLESPACE_NAME from dba_tablespaces t;
+----
+为表空间增加数据文件
+alter tablespace users add datafile '/oracle/oradata/user03.dbf' size 100m autoextend on next 50m maxsize unlimited;
+删除单个数据文件
+select t.FILE#,t.STATUS,t.NAME from v$datafile t;
+alter tablespace users drop datafile FILE#; 
+
+-----------------------------------------
+
+5、创建用户设置默认表空间
+
+select tablespace_name,file_id,file_name,round(bytes/(1024*1024),0) total_space from dba_data_files order by tablespace_name;
+create tablespace MYUSER datafile '/oracle/oradata/xdgl/myuser01.dbf' size 10m autoextend on next 500M,'/oracle/oradata/xdgl/myuser02.dbf' size 10m autoextend on next 500M;
+create user tt identified by tt default tablespace USER_NEW;
+create user my identified by my default tablespace MYUSER temporary tablespace my_temp;
+grant connect,resource,dba to eximuser_jyuat;
+revoke connect,resource,dba from user01;--撤销授权
+
+---------------------------------------------
+
+6、创建link
+查询用户是否具有创建全局link的权限
+select * from user_sys_privs where privilege like upper('%database link%');
+赋权
+grant create public database link to te;
+
+若创建全局的dblink，则需要sysdba用户来创建
+
+
+
+-- Create database link ，dblink的名字不能数字在前，密码有大小写的区别，故得在“”中写密码
+create database link x194
+  connect to EXIMUSER identified by "exim1122bank"
+  using '(DESCRIPTION =
+    (ADDRESS_LIST =
+      (ADDRESS = (PROTOCOL = TCP)(HOST = 192.168.202.194)(PORT = 1521))
+    )
+    (CONNECT_DATA =
+      (SERVICE_NAME = xdgl)
+    )
+  )';
+ 
+删除dblink
+drop database link eximuser196;
+  
+------------------------------------------------
+
+7、数据库本身具有的一些表
+select * from dba_batlespace;--表空间信息
+	select tablespace_name, sum(bytes) / 1024 / 1024 from dba_free_space group by tablespace_name;--查看表空间剩余情况
+	select tablespace_name, sum(bytes) / 1024 / 1024 from dba_data_files group by tablespace_name; --查看表空间分配大小
+	select t.FILE_NAME,t.TABLESPACE_NAME,t.USER_BYTES from dba_data_files t; --查看数据库中所有表空间使用信息
+select * from dba_users;--查看数据库所有用户
+select * from v$parameter;--数据库服务器参数
+select * from v$logfile --查看oracle的日志文件
+select * from v$controlfile;--查看控制文件
+select created,log_mode from v$database;--查看数据库的创建时间和归档方式
+
+-------------------------------------------
+
+8、查询历史连接的最大数：select * from v$license;
+————————————————————————————————————————————————
+
+对于char和varchar2的类型，java读取出来的字段内容长度不一样
+
+-------------------------------------
+
+两个不同用户之间复制表
+create table my.AFRPBAL as select * from tc.Afrpbal;
+只复制表结构。
+create table MIAFPCTMRSTORE as select * from tc.MIAFPCTMRSTORE where 1=2;
+
+-------------------------
+
+对比两张表结构相同中数据不同
+select * from t2 minus select * from t1;--得出的是以t2为基础的对比结果
+select * from t1 minus select * from t2;--得出的是以t1为基础的对比结果
+
+-------------------------
+
+查询当前用户下所有的表名
+select * from user_tables;
+select count(*) from user_tables;
+
+用当下用户查询其他用户的所有表名
+select count(*) from all_tables t where t.OWNER='TC'
+-------------------------
+
+Oracle创建表和MySQL不同之处在于MySQL可以用create or replace 而Oracle不能用。
+
+------------------------------
+查询当前用户下所有表及表的记录数
+select t.TABLE_NAME,num_rows from user_tables t
+
+-------------------------------------
+去重查询
+select distinct(t.operate_tab) from dep_log t;
+
+
+
+---------数据库报错的常用解决方法----------------------
+ORA-00054:
+
+select * from v$locked_object;
+
+select object_name,s.SID,s.SERIAL#,p.SPID
+  from v$locked_object l, dba_objects o, v$session s, v$process p
+ where l.OBJECT_ID = o.OBJECT_ID
+   and l.SESSION_ID = s.SID
+   and s.PADDR = p.ADDR;
+
+alter system kill session 'SID,SERIAL#';
+
+=================================================================
+闪回技术
+--开启闪回：alter system set db_recovery_file_dest_size=4g scope=both;
+--停用闪回：
+闪回数据库：
+--归档：
+	查询:archive log list;
+  启动归档：alter database archivelog;
+--设置参数
+	alter system set db_flashback_retention_targer=7200=5*1440;
+--启动闪回数据库
+	alter database flashback on;
+	alter database open;
+--------------------------------------------------------------
+oracle11g的flashback可以对表和数据库进行恢复。
+--闪回表
+	
+
+	
+--------
+打开数据库的闪回
+
+--查询归档：archive log list;  开启归档：alter database archivelog;
+--设置闪回恢复区:
+
+设置闪回区位置：：alter system set db_recovery_file_dest= scope=both;
+设置闪回时间：alter system set db_flashback_retention_targer=7200=5*1440;
+--打开闪回功能
+shutdown iimmediate;
+startup mount;
+alter database flashback on;
+alter database open;
+--确认数据库闪回功能已经开启
+select flashback_on from v$database;
+-----------------
+关闭闪回
+shutdown immediate;
+startup mount;
+alter database flashback off;
+alter database open;
+
+
+
+
+查看快速恢复区的参数信息
+show parameter db_recovery_file_dest;
+设置闪回区大小及位置：
+alter system set db_recovery_file_dest_size=4g;
+
+查看闪回区的使用情况
+select name,space_limit,space_used,number_of_files from v$recovery_file_dest
+
+
+=======================
+oarcle用户下
+sqlplus / as sysdba
+archive log list;
+startup nomount;
+alter database mount;
+alter database archivelog;
+
+rman trager /
+report schema;
+
+
+
+
+
+=======================
+
+
+
+
+
+
+
+
+
+
+--------------------------------------------------------------
+设置保存点
+	savepoint mypoint;
+	rollback to mypoint;
+	
+--------------------------------------------------------------
+更改字段长度
+alter table AFRSTEM modify (PRSERNO varchar2(11));
+添加字段
+alter table AFRSTON add(CALGHDAT VARCHAR(10));
+
+
+------------------------------------
+列转行
+select wm_concat(t.column_name) from user_cons_columns t where t.table_name='ZDTRANLNINTRSTRPYPLAN' ;
+
+-----------------------------
+
+
+
+

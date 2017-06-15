@@ -1,0 +1,57 @@
+===================================================
+在实际的环境中会遇到这样的场景：
+内存占用不高，IO占用不高，但CPU占用率很高。
+一般都是在系统运行时突然就卡顿。cpu占用率达到100%
+===================================================
+
+1、top(linux)或topas(aix)查看占用cpu情况，找到占用进程，如果是oracle占用的进程则开始在数据库中寻找
+30408938
+30146712
+2、查找占用cpu过高的sql语句和相关的session
+select a.SQL_TEXT,s.SPID,n.PROGRAM,n.PROCESS,n.STATUS,n.sid,n.SERIAL#
+  from v$sqlarea a, v$session n, v$process s
+ where a.ADDRESS = n.SQL_ADDRESS
+   and a.HASH_VALUE = n.SQL_HASH_VALUE
+   and n.PADDR=s.ADDR
+   and s.SPID in ('30408938','30146712'); 
+3、分析sql语句，对语句做优化
+
+
+4、杀掉session链接，分析影响程度，若无影响则杀掉
+alter system kill session '481,5';
+
+1.查看总消耗时间最多的前10条SQL语句
+select *
+ from (select v.sql_id,
+ v.child_number,
+ v.sql_text,
+ v.elapsed_time,
+ v.cpu_time,
+ v.disk_reads,
+ rank() over(order by v.elapsed_time desc) elapsed_rank
+ from v$sql v) a
+ where elapsed_rank <= 10;
+
+2.查看CPU消耗时间最多的前10条SQL语句
+select *
+ from (select v.sql_id,
+ v.child_number,
+ v.sql_text,
+ v.elapsed_time,
+ v.cpu_time,
+ v.disk_reads,
+ rank() over(order by v.cpu_time desc) elapsed_rank
+ from v$sql v) a
+ where elapsed_rank <= 10;
+
+3.查看消耗磁盘读取最多的前10条SQL语句
+select *
+ from (select v.sql_id,
+ v.child_number,
+ v.sql_text,
+ v.elapsed_time,
+ v.cpu_time,
+ v.disk_reads,
+ rank() over(order by v.disk_reads desc) elapsed_rank
+ from v$sql v) a
+ where elapsed_rank <= 10;

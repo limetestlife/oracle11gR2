@@ -1,0 +1,91 @@
+相关概念：
+Rowid：伪列
+Recursive Sql：有时为了执行用户发出的一个sql语句，Oracle必须执行一些额外的语句，我们将这些额外的语句称之为“recursive calls”或“recursive SQL statements”
+Predicate(谓词):一个查询中的WHERE限制条件。
+DRiving Table(驱动表)
+Probed Table(被探查表)
+组合索引(concatenated index):由多个列构成的索引，create index idx_emp on emp（col1， col2， col3， ……）。在组合索引中有一个重要的概念：引导列（leading column），在上面的例子中，col1列为引导列。当我们进行查询时可以使用“where col1 = ？ ”，也可以使用“where col1 = ？ and col2 = ？”，这样的限制条件都会使用索引，但是“where col2 = ？ ”查询就不会使用该索引。所以限制条件中包含先导列时，该限制条件才会使用该组合索引。
+可选择性(selectivity)：比较一下列中唯一键的数量和表中的行数，就可以判断该列的可选择性。 如果该列的“唯一键的数量/表中的行数”的比值越接近1，则该列的可选择性越高，该列就越适合创建索引，同样索引的可选择性也越高。在可选择性高的列上进行查询时，返回的数据就较少，比较适合使用索引查询。
+
+
+
+
+
+Oracle执行计划
+	统计信息
+	动态采样
+1. 11g默认启动了统计信息收集的任务，默认运行时间是周一到周五晚上10点和周6，周天的早上6点
+2. 你也可以关闭自动统计新收集任务，选择手工收集的方式，但是一般不建议这样操作。
+
+获取执行计划的方法
+
+---------------------------------------
+oracle访问数据的存取方法
+全表扫描：Full Table Scans：FTS。利用多块读来减少I/O总次数提高全表扫描性能。数据块（db_block_multiblock_read_count参数设定）。使用FTS的前提条件：在较大的表上不建议使用全表扫描，除非取出数据的比较多，超过总量的5% —— 10%，或你想使用并行查询功能时。
+	通过ROWID的表存取
+	索引扫描
+	索引全扫描（index full scan）
+	索引快速扫描（index fast full scan）
+	
+---------------------------------------
+表之间的连接
+	排序 - - 合并连接（Sort Merge Join， SMJ）
+	嵌套循环（Nested Loops， NL）
+	哈希连接（Hash Join， HJ）
+	笛卡儿乘积（Cartesian Product）
+---------------------------------------
+
+
+
+set SERVEROUTPUT ON;打开plsql的输出功能
+
+
+---------------------------------------
+优化器；将用户提交的SQL语句根据各种判断标准，制定出最优的执行计划并交由执行器来执行。
+成本；是优化器中反映SQL语句执行代价的一个指标。优化器通过对比不同执行计划的成本，选择最小的。
+
+sql的执行过程；
+客户端 -> 解析 -> 优化器 -> 执行器 -> 返回结果
+
+优化器的相关参数；
+1、optimizer_mode;控制数据库使用哪种优化器
+	RULE--RBO
+	CHOOSE--9i的默认值
+	ALL_ROWS--CBO;10G后的默认值
+	FIRST_ROWS;
+select t.name,t.VALUE,t.ISDEFAULT,t.ISMODIFIED,t.DESCRIPTION from v$system_parameter t where t.NAME like '%optimizer_mode%'--查看实例级优化器设置。
+	
+	
+2、optimizer_features_enable;控制优化器的版本
+select value from v$parameter_valid_values where name='optimizer_features_enable'--查看可用的版本号
+alter system set optimizer_features_enable='9.2.0';--设置实例级别参数
+alter session set optimizer_features_enable='9.2.0';--会话级别
+
+
+3、Hint;提示
+ALL_ROWS;针对整个目标SQL的hint，让优化器使用CBO且在得倒目标sql执行计划时会选择吞吐量最佳的执行路径。故其会计算各个执行计划的资源消耗量来选择。10g后的默认值。
+吞吐量最佳；资源消耗量最小（包括I/O,CPU等硬件资源）
+FIRST_ROWS(n);针对整个目标sql的hint
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
